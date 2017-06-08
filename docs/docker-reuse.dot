@@ -1,0 +1,21 @@
+digraph dockerreuse{
+
+   s1 [label="FROM ubuntu #1\nf7b3f317ec73"];
+   s2 [label="RUN apt-get update #2\n5bf125c8a2a4"];
+   s3 [label="RUN apt-get install -y python #3\nd49eae5c2a3a"];
+   s4 [label="RUN apt-get install -y perl #4\nfb08c088d251"];
+
+   s4 -> s2 [label="Using cache"];
+   s3 -> s2;
+   s2 -> s1;
+
+}
+
+// Step 1/3 : FROM ubuntu
+//  ---> f7b3f317ec73
+// Step 2/3 : RUN apt-get update
+//  ---> Using cache
+//  ---> 5bf125c8a2a4
+// Step 3/3 : RUN apt-get install -y python
+//  ---> Using cache
+//  ---> d49eae5c2a3a

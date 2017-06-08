@@ -238,17 +238,313 @@ class: center, middle
 
 ---
 
+## Simple
+
+* スマフォアプリ
+    * AppStoreでGET・更新するだけ！
+    * アプリのフォルダとか気にする必要なし！
+    * 色々隠蔽されており、細かいコントロールを行えないが、
+        * コントロールしたい？
+        * 勉強したい？
+    * セキュア
+        * アプリ間は基本的に独立している
+            * 無知でも安心して使える
+                * **無知でいられる**
+
+**なぜ我々はこう作れないのだろう？**
+
+
+---
+
+class: center, middle
+
+# Docker
+
+Build, Ship, and Run Any App, Anywhere
+
+![:scale 50%](docker.png)
+
+---
+
+## Docker is 何？
+
+* Docker, Inc. が開発
+* [2013年 3月にリリースされてから](https://en.wikipedia.org/wiki/Docker_(software))、続々更新を続けている
+* 簡単にいうと、アプリケーションコンテナを作るためのソフト
+    * アプリケーションコンテナって何？
+
+---
+
+## アプリケーションコンテナって何？
+
+* 特定のプロセスの空間を独立させたもの
+    * プロセス: `ps` コマンドで出てくる、あのプロセスのことです
+    * 具体的には…
+        * ファイルシステムが親マシンから隔離されています
+            * コンテナの中で暴れても親マシンは平気
+        * ネットワークが親マシンから隔離されています
+            * コンテナ独自のIPアドレスを持ってるし、明示的に親マシンのネットワークとマッピングしないと、外からの通信を受け取れない
+        * プロセス空間が親マシンから隔離されています
+            * コンテナの中で `ps` しても自分（とその子）しか見えません
+            * 親マシンの他のプロセスの情報を盗めません
+
+---
+
+## 実演: Dockerのインストール (Ubuntu)
+
+VagrantでUbuntu(16.04 - Xenial)を立ち上げ、Dockerをインストールしてみます。
+
+```console
+# On you machine.
+
+$ cd ./demos
+$ vagrant up
+$ vagrant ssh
+```
+
+```console
+# Inside the Ubuntu.
+
+$ sudo -i
+% curl -sSL https://get.docker.com/ | sh
+% docker version
+```
+
+🍺 終わりです 🍺
+
+（普通にaptリポジトリを追加して〜 という手順もあります。）
+
+---
+
+## 実演: Dockerのインストール (for Mac)
+
+1. [Docker for Mac](https://docs.docker.com/docker-for-mac/install/)を入れましょう。
+2. 🍺 終わりです 🍺
+
+1. あるいは、これでも問題なしです
+```
+$ brew cask install docker
+```
+
+* 基本的な原理としてはLinux VMを入れてその上でDockerを動かしているに過ぎません
+    * これは Docker for Windowsの場合も同じです。(Hyper-V が必要です。)
+* VMのコスト、後述するボリュームについてのファイル同期コストなどあるため、Linuxのほうが軽量です
+
+---
+
+
+## 実演: Dockerで簡単な操作
+
+DockerでUbuntuのbashのコンテナを作って動かしてみます。
+
+```console
+$ docker run -ti --rm ubuntu bash
+```
+
+* `docker`: Dockerのベースコマンド
+* `run`: 「Dockerコンテナをこのイメージ名とコマンドで動かしまーす！」
+    * `docker run [オプション] イメージ名 コマンド`
+* `-ti`: これがないと tty がくっつかない
+* `--rm`: 終了したらコンテナを廃棄してもらう
+
+---
+
+## Dockerイメージって何？ @ 1
+
+* Dockerコンテナはファイルシステムをホスト（親）マシンと分離している
+    * ファイルシステムを分離しているので、自分専用のLinux環境が必要だ！
+
+```
+# 親マシンのFS
+
+root@ubuntu-xenial:~# ls /
+bin   dev  home        lib    lost+found  mnt  proc  run   snap  sys  usr      var
+boot  etc  initrd.img  lib64  media       opt  root  sbin  srv   tmp  vagrant  vmlinuz
+
+# DockerイメージのFS
+
+root@22b398a17fff:/# ls /
+bin   dev  home  lib64  mnt  proc  run   srv  tmp  var
+boot  etc  lib   media  opt  root  sbin  sys  usr
+
+```
+
+---
+
+## Dockerイメージって何？ @ 2
+
+* Docker Hub(https://hub.docker.com/) で配布しています
+    * Linuxまるごとのファイルシステムのスナップショットのようなものを配布したりしている
+        * e.g. Ubuntu - https://hub.docker.com/r/library/ubuntu/
+        * e.g. CentOS - https://hub.docker.com/_/centos/
+* でも、Linuxがまるごと入ってるってやばくね？ （何ギガだよ？）
+    * 実際、そこまでヤバくない
+        * e.g. CentOS: 70.49MiB
+        * e.g. Ubuntu: 38MiB
+        * e.g. 激ヤセLinuxの[Alpine](https://hub.docker.com/r/library/alpine/tags/): 2MiB!!!
+    * どれも最低限の構成になっている。必要なソフトウェアは自前で入れるか、入っているDockerイメージを使うべし。
+
+---
+
+## Dockerイメージって何？ @ 3
+
+* 自分でも配布できます
+    * Docker Hubに置いたり
+    * プライベートなレジストリをもって、そこに置いたり
+* ほしいアプリの、だいたいあります。
+    * Nginx, Jenkins, ElasticSearch, Logstash, Open Tsukubai etc.
+* 当然、自分で作れます。普通に作ります。
+
+じゃあ作ってみよう。
+
+---
+
+## 実演: Dockerイメージを作成 @ 1
+
+1. 以下のファイルを `Dockerfile` として保存。
+
+```Dockerfile
+FROM ubuntu
+
+RUN apt-get update
+RUN apt-get install -y python
+```
+
+* 解説
+    1. `ubuntu` をベースにDockerイメージを作成しまーす
+    2. `yum update` を実行したDockerイメージを作成
+        * [1] との差分として保存 💾 
+    3. `yum install -y python` を実行したDockerイメージを作成
+        * [2] との差分として保存 💾 
+    4. 🍺 これでPythonの入ったUbuntuイメージの完成!
+
+コマンドを実行するごとに前との差分をどんどん作成、保存していく。
+イメージを使うときは差分が全て合成された状態のものを使う。
+
+---
+
+たとえば、下記の2パターンをビルドした場合、
+
+```Dockerfile
+FROM ubutnu #1
+RUN apt-get update #2
+RUN apt-get install -y python #3
+```
+```Dockerfile
+FROM ubutnu #1
+RUN apt-get update #2
+RUN apt-get install -y perl #4
+```
+
+2パターン目の `#1`, `#2` は　1パターン目の  `#1`, `#2` が再利用される。
+
+![:scale 90%](docker-reuse.png)
+
+差分をうまく使ってビルドの高速化、ストレージ専有のスリム化を行っている。
+
+---
+
+## 実演: Dockerイメージを作成 @ 2
+
+2. コマンドを実行してDockerイメージをビルドする
+
+```console
+$ docker build -t myimage .
+
+$ docker images | grep myimage
+```
+
+* `docker build [-t タグ名] どこのフォルダ(build's context)でビルドするか？`
+    * `-t タグ名` は省略可能。省略した場合はビルド結果を参照するには、自動付与されたハッシュ名を用いるしかなくなる。
+    * _どこのフォルダでビルドするか？_ はビルドのコンテキストとなるディレクトリを指定。
+        * **ビルドのコンテキストとなるディレクトリ内の資材は基本的にビルド開始時全てDockerデーモンにアップロードされるので注意。**
+            * `.dockerignore` ファイルで無視させましょう
+        * ビルドコンテキストディレクトリ内のファイルはDockerfile内で参照できます (`COPY`コマンドなど)
+        * この仕組みで遠くのDockerデーモンでもビルド可能になっている
+---
+
+## 実演: Dockerイメージを実行 @ 1
+
+1. 作成したDockerイメージを実行する
+
+```console
+$ docker run -ti --rm myimage bash
+```
+
+```console
+$ which python
+$ python
+```
+
+---
+
+## Dockerコンテナって何？
+
+---
+
+1. 親マシンからこのプロセス見えるかな？　`pstree`
+2. 中から外が見えるかな？
+    * 中から外のネットワーク見えるかな？
+    * 中の `ps` はみえるかな？
+    * 外からパケットが来るかな？ (via `apt install -y apache2`)
+3. 中で `rm -rf /*` したらどうなるかな？
+
+---
+
+## まるで、VM（仮想マシン）にそっくりだね！
+
+* 実際、当初は仮想マシンと対比されることがほとんどでした
+* しかし、全く違うものです
+
+---
+
+| | VM | 🐳 Docker |
+|-|----|-----------|
+| 指向性 | OSに対して | アプリケーションプロセスに対して |
+| OS | CPUさえあってれば、なんでも動かせる | 基本的にAMD64 Linux |
+| ハイパーバイザ | ESXi, Linux (KVM), Windows (Hyper-V), macOS (Parallels), VirtualBox etc. | 基本的にAMD64 Linux |
+| ストレージ | 大量に必要 | イメージ、コンテナ間を差分管理 |
+| 自由度 | 大 | 小 |
+| リソース制限 | 自由かつ厳格 | できればいいなあ |
+| Intel VT-x | だいたい必要 | 不要 (VM上でも動かせる) |
+| 技術 | ハードウェアエミュレーション | ただのプロセス分離 |
+| フットプリント | 大 | 小 |
+| 気軽さ | 😭 | 😁 |
+
+**はっきりいって両者を真面目に比較している時点で正気じゃありません。**
+
+---
+
+* 当初はLinux上でDockerイメージとコンテナを作るだけのソフトでした
+    * しかし、月日が経つにつれ、便利機能、便利ツールが充実してきてソフトというよりはプラットフォームと呼んだほうがよくなってきている
+        * 単純なソフトウェアとして、捉えてはいけない
+
+    * 最近の AMD64 Linux 上で動く
+        * これは最近もほぼかわらない
+    * [Windows Server 2016](https://www.docker.com/docker-windows-server) でも動く
+    * 〜〜〜 でDockerが動くと言った場合、単に小さな AMD 64bit な Linux のVM上で動くというケースが多い
+
+---
+
 ## Thanks
 
+* VSCode
+    * https://code.visualstudio.com/
 * Ramark
     * https://github.com/gnab/remark
     * HTMLの中にMarkdown書くだけで勝手にスライドにしてくれるすごいやつ
-
+* https://en.wikipedia.org/wiki/Docker_(software)
 
     </textarea>
     <script src="https://remarkjs.com/downloads/remark-latest.min.js">
     </script>
     <script>
+
+    remark.macros.scale = function (percentage) {
+        var url = this;
+        return '<img src="' + url + '" style="width: ' + percentage + '" />';
+    };
+
       var slideshow = remark.create();
     </script>
   </body>
