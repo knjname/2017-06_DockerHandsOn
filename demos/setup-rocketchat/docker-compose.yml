@@ -1,0 +1,12 @@
+version: "3" # フォーマットバージョン
+services:
+  rocketchat:
+    image: rocket.chat:0.56.0 # イメージ名:タグ名
+    links:
+      - mongodb:db # mongodbをdbというホスト名で見せる
+    ports:
+      - 13000:3000 # コンテナ内部で3000で待っているが 13000 に公開
+  mongodb:
+    image: mongo:3.5.8
+    volumes:
+      - ./rocketchat-data:/data/db # コンテナ内の /data/db を ./rocketchat-data にマッピング
