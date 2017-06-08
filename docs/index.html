@@ -287,12 +287,17 @@ Build, Ship, and Run Any App, Anywhere
         * プロセス空間が親マシンから隔離されています
             * コンテナの中で `ps` しても自分（とその子）しか見えません
             * 親マシンの他のプロセスの情報を盗めません
+* プロセスは上げ下げ（開始・停止）できます。
+    * プロセスが上がっているとコンテナが _走行中_ (running)
+    * プロセスが下がっているとコンテナが _停止中_
 
 ---
 
 ## 実演: Dockerのインストール (Ubuntu)
 
-VagrantでUbuntu(16.04 - Xenial)を立ち上げ、Dockerをインストールしてみます。
+VagrantでUbuntu(16.04 - Xenial)を立ち上げ、Dockerをインストールしてみます。VirtualBox必須です。
+
+（別にVagrantでUbuntuを立ち上げずとも、そのままUbuntuをインストールして入れる、とかでも構いません）
 
 ```console
 # On you machine.
@@ -316,6 +321,43 @@ $ sudo -i
 
 ---
 
+## 実演: Dockerのインストール (Docker Machine) @1
+
+[Docker Machine](https://docs.docker.com/machine/) を使ってDockerが入ったVMを立ち上げてみます。(macOS or Windows) VirtualBox必須です。
+
+1. [Docker Machineをインストール](https://docs.docker.com/machine/install-machine/)する。
+
+ ```console
+$ curl -L https://github.com/docker/machine/releases/download/v0.10.0/docker-machine-`uname -s`-`uname -m` >/usr/local/bin/docker-machine && \
+chmod +x /usr/local/bin/docker-machine
+$ docker-machine version
+# 実態はただの単一のバイナリファイルです
+ ```
+
+2. 実行する。VirtualBox上に `mydockermachine` というVMがあがります。
+
+ ```console
+$ docker-machine create --driver virtualbox mydockermachine # 普通はdefaultにしておくのが無難です
+ ```
+
+---
+
+## 実演: Dockerのインストール (Docker Machine) @2
+
+3. `docker` コマンドに認識させる環境変数をロードさせる。
+
+ ```console
+$ eval $(docker-machine env mydockermachine)
+ ```
+
+4. 以後は **環境変数のおかげで** `docker` コマンドが勝手に `mydockermachine` (リモート) に転送されます。
+    * マシンへのSSH接続: `docker-machine ssh`
+        * 別にSSHで繋いでからDockerを楽しんでもいい
+    * 自マシンとのフォルダの共有: `/Users` フォルダを見ましょう。他に追加したい場合はググれば出てきます。
+
+
+---
+
 ## 実演: Dockerのインストール (for Mac)
 
 1. [Docker for Mac](https://docs.docker.com/docker-for-mac/install/)を入れましょう。
@@ -332,7 +374,6 @@ $ brew cask install docker
 
 ---
 
-
 ## 実演: Dockerで簡単な操作
 
 DockerでUbuntuのbashのコンテナを作って動かしてみます。
@@ -346,6 +387,16 @@ $ docker run -ti --rm ubuntu bash
     * `docker run [オプション] イメージ名 コマンド`
 * `-ti`: これがないと tty がくっつかない
 * `--rm`: 終了したらコンテナを廃棄してもらう
+
+
+---
+
+1. 親マシンからこのプロセス見えるかな？　`pstree`
+2. 中から外が見えるかな？
+    * 中から外のネットワーク見えるかな？
+    * 中の `ps` はみえるかな？
+    * 外からパケットが来るかな？ (via `apt install -y apache2`)
+3. 中で `rm -rf /*` したらどうなるかな？
 
 ---
 
@@ -403,7 +454,7 @@ boot  etc  lib   media  opt  root  sbin  sys  usr
 
 1. 以下のファイルを `Dockerfile` として保存。
 
-```Dockerfile
+```dockerfile
 FROM ubuntu
 
 RUN apt-get update
@@ -455,76 +506,158 @@ $ docker images | grep myimage
 ```
 
 * `docker build [-t タグ名] どこのフォルダ(build's context)でビルドするか？`
-    * `-t タグ名` は省略可能。省略した場合はビルド結果を参照するには、自動付与されたハッシュ名を用いるしかなくなる。
+    * `-t タグ名` は省略可能。ただし、省略した場合はビルド結果を参照するには、自動付与されたハッシュ名を用いるしかなくなる。
     * _どこのフォルダでビルドするか？_ はビルドのコンテキストとなるディレクトリを指定。
         * **ビルドのコンテキストとなるディレクトリ内の資材は基本的にビルド開始時全てDockerデーモンにアップロードされるので注意。**
             * `.dockerignore` ファイルで無視させましょう
         * ビルドコンテキストディレクトリ内のファイルはDockerfile内で参照できます (`COPY`コマンドなど)
         * この仕組みで遠くのDockerデーモンでもビルド可能になっている
+
 ---
 
 ## 実演: Dockerイメージを実行 @ 1
 
 1. 作成したDockerイメージを実行する
+    * 今度は `--rm` (終了時削除) を選ばず実行
+    * `--name コンテナ名` を指定して実行
 
-```console
-$ docker run -ti --rm myimage bash
-```
+ ```console
+$ docker run -ti \
+    --name myimagecontiner \
+    myimage bash
+ ```
 
-```console
+2. **Dockerコンテナ `myimagecontiner` が作られて** 、その中に入ることができる。
+
+ ```console
 $ which python
 $ python
-```
+# C-d を押して出ていってください
+ ```
 
 ---
 
-## Dockerコンテナって何？
+## 実演: Dockerイメージを実行 @ 2
+
+3. `docker ps -a` コマンドでコンテナを確認することができる。
+
+ ```console
+$ docker ps -a # docker ps だと生きているコンテナしか見られない
+IMAGE    COMMAND  CREATED        STATUS                    NAMES
+myimage  "bash"   4 seconds ago  Exited (0) 3 seconds ago  myimagecontainer
+ ```
+
+4. `docker rm` コマンドでコンテナを削除することができる
+
+ ```console
+$ docker rm myimagecontainer
+$ docker ps -a # 何もでない
+ ```
+
+他にも大量にコマンド、オプションはあります。
+
+* https://docs.docker.com/engine/reference/commandline/cli/
+* https://docs.docker.com/engine/reference/run/
+* `-v` で親マシンのディレクトリをコンテナ内にマップできます
+* `-p` で親マシンのポートをコンテナ内にマップできます
 
 ---
 
-1. 親マシンからこのプロセス見えるかな？　`pstree`
-2. 中から外が見えるかな？
-    * 中から外のネットワーク見えるかな？
-    * 中の `ps` はみえるかな？
-    * 外からパケットが来るかな？ (via `apt install -y apache2`)
-3. 中で `rm -rf /*` したらどうなるかな？
+## Dockerコンテナって何？ @1
+
+* Dockerイメージを実行する時にできるインスタンス
+    * 実行時にコンテナとしてプロセス空間の制約を受ける
+    * 停止、再開できる
+
+    ```console
+$ docker stop myimagecontainer   # SIGTERM
+$ docker start myimagecontainer  # bash (run時に指定したコマンド)
+    ```
+
+    * 終了(`docker stop`)時は作成したコンテナのプロセスが `SIGTERM` を受け取る
+    * 再開時は run 時に指定したコマンドラインが再度実行される
 
 ---
 
-## まるで、VM（仮想マシン）にそっくりだね！
+## Dockerコンテナって何？ @2
 
-* 実際、当初は仮想マシンと対比されることがほとんどでした
+* Dockerイメージ作成と対してかわらない
+    * Dockerイメージはファイル差分により管理されていたが、その末端にコンテナというファイル差分が更に追加されるだけ。
+    * 別にコンテナをDockerイメージに変換することも可能: `docker commit` コマンド
+
+![:scale 70%](docker-container.png)
+
+---
+
+## Dockerコンテナって何？ @3
+
+* イメージと違って、開始・終了などといった状態がある： `docker ps` コマンド
+* しかし気軽に使ったり、消したりすることができる
+    * ☠ 逆にいえば、気軽に消せないようなコンテナは作ってはいけない
+
+---
+
+## VM（仮想マシン）にそっくりだね！
+
+* 実際、当初は仮想マシンと対比されることがかなり多かったです
 * しかし、全く違うものです
+* そもそも Docker on a VM が圧倒的に多い
+    * どっちかどうとかいう話ではない　役割が違う
+* おそらく自作アプリケーションをDockerイメージにしたい人はいても、VMにしたい人はあまりいないはず
 
 ---
 
-| | VM | 🐳 Docker |
+| 項目 | VM | 🐳 Docker |
 |-|----|-----------|
-| 指向性 | OSに対して | アプリケーションプロセスに対して |
+| 指向性 | OSに対して | OSのプロセスに対して |
 | OS | CPUさえあってれば、なんでも動かせる | 基本的にAMD64 Linux |
-| ハイパーバイザ | ESXi, Linux (KVM), Windows (Hyper-V), macOS (Parallels), VirtualBox etc. | 基本的にAMD64 Linux |
+| ハイパーバイザ | ESXi, Linux (KVM), Windows (Hyper-V), macOS (Parallels), VirtualBox etc. | あえていうならホストマシンのカーネル |
 | ストレージ | 大量に必要 | イメージ、コンテナ間を差分管理 |
 | 自由度 | 大 | 小 |
 | リソース制限 | 自由かつ厳格 | できればいいなあ |
 | Intel VT-x | だいたい必要 | 不要 (VM上でも動かせる) |
 | 技術 | ハードウェアエミュレーション | ただのプロセス分離 |
 | フットプリント | 大 | 小 |
-| 気軽さ | 😭 | 😁 |
+| 気軽さ | 😭 | 😁 ＜立ち上がりが速い！ |
 
-**はっきりいって両者を真面目に比較している時点で正気じゃありません。**
+**ただ、はっきりいって両者を真面目に比較している時点で正気じゃありません。**
 
 ---
+
+## Dockerはただのツールじゃない
 
 * 当初はLinux上でDockerイメージとコンテナを作るだけのソフトでした
     * しかし、月日が経つにつれ、便利機能、便利ツールが充実してきてソフトというよりはプラットフォームと呼んだほうがよくなってきている
         * 単純なソフトウェアとして、捉えてはいけない
-
-    * 最近の AMD64 Linux 上で動く
-        * これは最近もほぼかわらない
-    * [Windows Server 2016](https://www.docker.com/docker-windows-server) でも動く
-    * 〜〜〜 でDockerが動くと言った場合、単に小さな AMD 64bit な Linux のVM上で動くというケースが多い
+    * 蓄積された知見量も多く、何か問題にひっかかっても、誰かがひっかかっている
+* [Windows Server 2016](https://www.docker.com/docker-windows-server) でも動く (LinuxではなくWindowsソフトが)
+    * ARM でも動く
+    * 〜〜〜 でDockerが動くと言った場合、単に小さな AMD 64bit Linux のVM上で動くというケースが多い
 
 ---
+
+## Dockerの周辺ツール
+
+* Docker Compose
+* Docker Machine
+* Docker for Mac / Docker for Windows
+* Swarm
+* Kubernetes
+
+## コミュニティ
+
+* Docker Hub
+* Github
+    * だいたいのプロジェクトがDockerfileを備えている
+        * あのマストドンにも[ありました](https://github.com/tootsuite/mastodon/blob/master/Dockerfile)
+* 書籍
+* 認知度
+
+---
+
+## 注意
+
+* 今回紹介したDockerコマンドは近々コマンド名など変更される予定があります。
 
 ## Thanks
 

@@ -1,3 +1,5 @@
 #!/bin/sh -x
 
-docker run -ti --rm myimage bash
+docker run -ti \
+    --name myimagecontainer \
+     myimage bash
