@@ -28,16 +28,11 @@ by Kenji Saitou
 
 # 今日やること
 
-* Motivation
-    * 我々は何に困っているのか？
-* Virtue
-    * 我々の美徳、目指すところは何か？
-* Docker is
-    * 何？
-* Docker is **NOT**
-    * 何？
-* Let's use
-    * Docker 🐳
+* Motivation: 我々は何に困っているのか？
+* Virtue: 我々の美徳、目指すところは何か？
+* Docker: って何？
+* Docker: Use Cases
+* Docker: とは何じゃないか？
 
 ---
 
@@ -46,6 +41,8 @@ by Kenji Saitou
 * 新人のみなさん
 * Docker初心者のみなさん
 * 高度なトピックはやりません！
+    * クラスタリングとか
+* まず入り口に立ってもらうのが目的です！
 
 ---
 
@@ -61,7 +58,9 @@ class: center, middle
 
 ## 我々は何に困っているのか？
 
-* 一言で言えばアプリケーションのデプロイにまつわるあれこれ
+* 一言＋ありていに言えば、 **サーバ上でどうやってアプリケーションを管理しようか悩んでいる**
+    * デプロイとかの話です
+    * `yum -y install httpd` で入るようなアプリの話でもあります
 
 ---
 
@@ -72,8 +71,10 @@ class: center, middle
 * 小さな更新などを繰り返しているうちに、もう二度と同じサーバを作れなくなる
     * 再現性がない
     * そもそも今何が入っているかわからない ＼(^o^)／
+    * まるで汚部屋…
+    * 「このディレクトリ何のためにあるんですか〜？」
 * 継ぎ足しまくった秘伝のタレ、秘伝の手順書（最新版は不在）
-
+　
 ---
 
 ## 不完全なサーバセットアップ
@@ -141,7 +142,7 @@ class: center, middle
             * アプリケーションコード, 一部の構成
     * レガシーなアプリほど、これらが全てあやふや。
 * 何がコントロールできる変数？
-    * どこをいじればアプリの動作を変えられるのか不明
+    * どこをいじればアプリの動作を変えられるのか不明
     * データベースサーバの場所を移動したいんだけど、どのファイル書き換えればいいの？
 
 ---
@@ -168,14 +169,14 @@ class: center, middle
 * 集合知
     * 誰かが先に問題を潰している
     * 誰かと同じ問題にぶち当たることができる
-    * [Stackoverflow](https://stackoverflow.com/)
-    * [Server Fault](https://serverfault.com/)
+        * [Stackoverflow](https://stackoverflow.com/)
+        * [Server Fault](https://serverfault.com/)
 
 ---
 
 ## Immutable
 
-* 状態を持たない
+* 状態を持たない(statelss)、変化しない
     * 無秩序な状態（state)がもたらすもの、それはカオス
         * 何が入っているかわからないという不安
         * なら最初から状態がなければいい
@@ -189,6 +190,8 @@ class: center, middle
 
 ## XXX (whatever you want) as Code
 
+* Infrastructure as Code
+* Configuration as Code
 * せめて、プログラマらしく
 * とにかく、何でもコードになっていることが正義
 * 曖昧さが薄い
@@ -200,9 +203,9 @@ class: center, middle
 ## Isolation
 
 * 役割が独立/分散していること
-    * ログはログサーバ
-    * データはデータベース
-    * アプリはアプリサーバ
+    * ログはログサーバ (サービス)
+    * データはデータベース (サービス)
+    * アプリはアプリサーバ  (サービス)
 * なんでも一つがたくさんやりすぎない
 * マイクロサービス
     * 大きいシステムはこんなことを意識しなくても強制的にチーム単位で分断する力学が働いている
@@ -220,13 +223,14 @@ class: center, middle
 
        ![こいつ最高にアホ](最高にアホ.png)
     * 本番トラブル時のソースコードを復元できますか？
+    * そもそも、今、何をリリースしているか把握できますか？
 
 ---
 
 ## Automated Build
 
 * 中立的な環境でビルドできていますか？CIできてますか？
-    * Jenkins, Travis CI, Circle CI など
+    * Jenkins, Travis CI, Circle CI etc.
 * そもそもビルドが自動化できていない
     * 手でビルド?! JavaだとGradleとか使おうぜ案件
     * サーバでしかビルドできない？ 構成が特殊すぎてビルドできないプロジェクトは構成のほうがおかしい
@@ -238,7 +242,7 @@ class: center, middle
 
 ---
 
-## Simple
+## Simplicity
 
 * スマフォアプリ
     * AppStoreでGET・更新するだけ！
@@ -269,7 +273,7 @@ Build, Ship, and Run Any App, Anywhere
 ## Docker is 何？
 
 * Docker, Inc. が開発
-* [2013年 3月にリリースされてから](https://en.wikipedia.org/wiki/Docker_(software))、続々更新を続けている
+* 2013年 3月にリリースされてから、続々更新を続けている
 * 簡単にいうと、アプリケーションコンテナを作るためのソフト
     * アプリケーションコンテナって何？
 
@@ -289,7 +293,7 @@ Build, Ship, and Run Any App, Anywhere
             * 親マシンの他のプロセスの情報を盗めません
 * プロセスは上げ下げ（開始・停止）できます。
     * プロセスが上がっているとコンテナが _走行中_ (running)
-    * プロセスが下がっているとコンテナが _停止中_
+    * プロセスが下がっているとコンテナが _停止中_ (stopping)
 
 ---
 
@@ -505,12 +509,12 @@ $ docker build -t myimage .
 $ docker images | grep myimage
 ```
 
-* `docker build [-t タグ名] どこのフォルダ(build's context)でビルドするか？`
-    * `-t タグ名` は省略可能。ただし、省略した場合はビルド結果を参照するには、自動付与されたハッシュ名を用いるしかなくなる。
+* `docker build [-t 名前:タグ名] どこのフォルダ(build's context)でビルドするか？`
+    * `-t 名前:タグ名` は省略可能。ただし、省略した場合はビルド結果を参照するには、自動付与されたハッシュ名を用いるしかなくなる。
     * _どこのフォルダでビルドするか？_ はビルドのコンテキストとなるディレクトリを指定。
         * **ビルドのコンテキストとなるディレクトリ内の資材は基本的にビルド開始時全てDockerデーモンにアップロードされるので注意。**
             * `.dockerignore` ファイルで無視させましょう
-        * ビルドコンテキストディレクトリ内のファイルはDockerfile内で参照できます (`COPY`コマンドなど)
+        * ビルドコンテキストディレクトリ内のファイルはDockerfile内で参照できます (`COPY`, `ADD`コマンドなど)
         * この仕組みで遠くのDockerデーモンでもビルド可能になっている
 
 ---
@@ -632,7 +636,7 @@ $ docker start myimagecontainer  # bash (run時に指定したコマンド)
     * 蓄積された知見量も多く、何か問題にひっかかっても、誰かがひっかかっている
 * [Windows Server 2016](https://www.docker.com/docker-windows-server) でも動く (LinuxではなくWindowsソフトが)
     * ARM でも動く
-    * 〜〜〜 でDockerが動くと言った場合、単に小さな AMD 64bit Linux のVM上で動くというケースが多い
+    * 「〜〜〜でDockerが動く！」 と言った場合、本当にそこで動くのか、単に小さな AMD 64bit Linux のVMはさんで動くのか確認しましょう
 
 ---
 
@@ -641,8 +645,9 @@ $ docker start myimagecontainer  # bash (run時に指定したコマンド)
 * Docker Compose
 * Docker Machine
 * Docker for Mac / Docker for Windows
-* Swarm
-* Kubernetes
+* クラスタリング
+    * Swarm
+    * Kubernetes
 
 ## コミュニティ
 
@@ -676,6 +681,7 @@ class: center, middle
         * これをそのまま素直に開発用マシンに構築すると管理が大変でもれなく~~死んだ~~死ぬ
 * **どんどんDocker使いましょう。😆 知見もたまるのでオススメです。**
     * 私自身、数年前(Dockerが1.0になる前)からDockerで開発環境基盤を構築してました。
+        * 昔はツールもなくて大変だったけど、今はだいたいやりたいことに追いついてる
     * そこまでミッションクリティカルじゃないので、知見が多少足りなくても大丈夫！ただ基礎だけはきっちり！データだけは飛ばさないように！
     * 一旦弱いマシンにDockerベースで環境を作って、強いマシンに後で移動するパターンというのもできます。
         * 移動に強いのはDockerならでは。
@@ -724,7 +730,7 @@ $ docker-compose up
 
 ## ローカル開発環境
 
-* 今時の開発環境はLinuxファースト！macOSセカンド！Windowsサード…
+* 今時の開発環境はLinuxファースト！macOSセカンド！Windowsサード… 😭
     * .NETやiOSの開発をしているならともかく、メジャーなWebどころはこれが実情
     * あなたは純WindowsでRubyの開発できますか？
     * やたらJavaがSIer開発で引っ張りだこなのも、ここらへんは確実に原因
@@ -753,7 +759,7 @@ $ docker-compose up
 
 ## Dockerにフィットするアプリとは？
 
-* [The Twelve-Factor App](https://12factor.net/ja/) - **ズバリこれ**
+* [The Twelve-Factor App](https://12factor.net/ja/) ← **ズバリこれ！！**
     * 設定を環境変数に格納する / 開発・本番一致
         * Dockerコンテナ作成時に環境変数を指定することで、アプリの細かい動きを動作できる
             * DBの向き先、クレデンシャルやシークレットの内容などなど…
@@ -766,11 +772,22 @@ $ docker-compose up
         * 使い捨てられるコンテナの性質にぴったり
     * etc.
 
+
+---
+
+## Dockerを使う人達の違い
+
+* 自分たちのアプリケーションをDockerで配布・構築したい人
+* 何らかのインフラをDockerで構築したい人
+* 開発環境をDockerで立ち上げたい人
+* とにかくアプリケーションをDockerで簡単に試したい人
+* 単純にコンテナ技術として興味がある人
+
 ---
 
 class: center, middle
 
-# Not in Docker
+# NOT in Docker
 
 ![:scale 50%](docker.png)
 
@@ -784,7 +801,7 @@ class: center, middle
         * Dockerの素晴らしい部分は、この実（コア＝コンテナ）まわりのチュルチュルした甘い部分。
 * 銀の弾丸・魔法のツールじゃない
     * ただの道具。使う人の技量が出る。
-    * あたりまえの話
+    * まあ、あたりまえの話
     * 勝手にクラスタリングしてくれるわけじゃない
         * クラスタリングの道具は提供するから、あとはアプリケーションのほうで対応してね
 
@@ -825,27 +842,31 @@ class: center, middle
         * ファイルシステム
     * カーネルに依存している
 * 問題を起こすソフトウェアもある
-    * JavaVM
-* バグもある
-* セキュリティの問題
+    * [JavaVM](https://orablogs-jp.blogspot.jp/2017/05/java-se-support-for-docker-cpu-and.html)
+* [そりゃバグもある](https://github.com/moby/moby/issues)
+
 
 ---
 
 class: center, middle
 
-# まとめ
+# おわりに
 
 ![:scale 50%](docker.png)
 
 ---
 
-## まとめ
+## おわりに
 
-* Dockerは便利なアプリを簡単に使いやすくする便利な道具。
+* とりあえず、使ってみてほしい
+    * 個人的には大きな考え方の変動（パラダイムシフト）を感じた
+* 自分たちのプロジェクトに適用するとしたら、どうやって適用するか考えてみてほしい
 
 ## 注意
 
-* 今回紹介したDockerコマンドは近々コマンド名など変更される予定があります。
+* 今回紹介したDockerコマンドは近々コマンド名など変更される予定があります。 [参考1](https://docs.docker.com/engine/reference/commandline/cli/) [参考2](http://qiita.com/zembutsu/items/6e1ad18f0d548ce6c266)
+* DockerのOSS部分は全面的に[mobyという名称にリネームされています](https://blog.docker.com/2017/04/introducing-the-moby-project/)
+    * ` (( OSS = MobyOSS ) + α = Docker CE ) + β? = Docker EE `
 
 ---
 
